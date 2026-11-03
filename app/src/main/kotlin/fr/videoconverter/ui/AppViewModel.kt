@@ -26,6 +26,19 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
+/** Ordre d'affichage de la liste « Choisir les vidéos ». */
+enum class VideoSort(val label: String) {
+    DATE_DESC("Date : plus récentes d'abord"), DATE_ASC("Date : plus anciennes d'abord"),
+    SIZE_DESC("Taille : plus grosses d'abord"), SIZE_ASC("Taille : plus petites d'abord");
+
+    fun apply(l: List<fr.videoconverter.data.VideoItem>) = when (this) {
+        DATE_DESC -> l.sortedByDescending { it.dateAdded }
+        DATE_ASC -> l.sortedWith(compareBy({ it.dateAdded == 0L }, { it.dateAdded }))   // dates inconnues à la fin
+        SIZE_DESC -> l.sortedByDescending { it.sizeBytes }
+        SIZE_ASC -> l.sortedBy { it.sizeBytes }
+    }
+}
+
 class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     private val va get() = app as VideoApp
     val store get() = va.store
@@ -38,6 +51,7 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
     val selected = MutableStateFlow<Set<Long>>(emptySet())
     val extra = MutableStateFlow<List<VideoItem>>(emptyList())     // vidéos ajoutées par le sélecteur système
     var folderFilter by mutableStateOf<String?>(null)
+    var sortOrder by mutableStateOf(VideoSort.DATE_DESC)
     val infoCache = mutableStateMapOf<Long, VideoInfo>()
     private val probeGate = Semaphore(2)
 

@@ -54,3 +54,7 @@ Exécuter docs/TESTS.md à partir du point 2 (conversion MP4 réelle d'une vraie
 ## Mise à jour (liste des conversions)
 - File : les conversions terminées sont triées de la plus récente à la plus ancienne (en haut des terminées). Niveau 2 (compilé, tests 16/16).
 - Champ `originalDeleted` : après suppression de l'original (lecteur ou historique, confirmée par Android), la ligne est grisée avec la pastille « Original supprimé » (file + historique). Niveau 2, à vérifier sur le Pixel.
+
+## Mise à jour (tri + balayage)
+- Choisir les vidéos : menu « Tri » (date récentes/anciennes, taille croissante/décroissante), appliqué après le filtre de dossier. Niveau 2.
+- Lecteur : balayage gauche = vidéo suivante, droite = précédente (ordre de la liste, plus récente d'abord), compteur « n / total ». Niveau 2, à vérifier sur le Pixel (le geste ne doit pas gêner la barre de lecture).

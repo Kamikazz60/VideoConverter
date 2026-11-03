@@ -19,6 +19,8 @@ data class VideoItem(
     val width: Int,
     val height: Int,
     val folder: String,
+    /** Date d'ajout (secondes depuis 1970) ; 0 si inconnue (fichier choisi via le sélecteur système). */
+    val dateAdded: Long = 0,
 )
 
 object MediaRepo {
@@ -27,6 +29,7 @@ object MediaRepo {
         val proj = arrayOf(
             MediaStore.Video.Media._ID, MediaStore.Video.Media.DISPLAY_NAME, MediaStore.Video.Media.SIZE,
             MediaStore.Video.Media.DURATION, MediaStore.Video.Media.WIDTH, MediaStore.Video.Media.HEIGHT, MediaStore.Video.Media.RELATIVE_PATH,
+            MediaStore.Video.Media.DATE_ADDED,
         )
         context.contentResolver.query(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI, proj,
@@ -39,6 +42,7 @@ object MediaRepo {
             val iW = c.getColumnIndexOrThrow(MediaStore.Video.Media.WIDTH)
             val iH = c.getColumnIndexOrThrow(MediaStore.Video.Media.HEIGHT)
             val iRel = c.getColumnIndexOrThrow(MediaStore.Video.Media.RELATIVE_PATH)
+            val iDate = c.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
             while (c.moveToNext()) {
                 val id = c.getLong(iId)
                 out += VideoItem(
@@ -48,6 +52,7 @@ object MediaRepo {
                     sizeBytes = c.getLong(iSize), durationMs = c.getLong(iDur),
                     width = c.getInt(iW), height = c.getInt(iH),
                     folder = (c.getString(iRel) ?: "").trimEnd('/').ifBlank { "(racine)" },
+                    dateAdded = c.getLong(iDate),
                 )
             }
         }

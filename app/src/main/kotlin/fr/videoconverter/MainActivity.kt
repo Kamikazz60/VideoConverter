@@ -38,7 +38,11 @@ class MainActivity : ComponentActivity() {
                     composable("test") { TestScreen(vm, go, back) }
                     composable("queue") { QueueScreen(vm, go, back) }
                     composable("history") { HistoryScreen(vm, go, back) }
-                    composable("player/{id}") { e -> PlayerScreen(vm, e.arguments?.getString("id") ?: "", back) }
+                    composable("player/{id}") { e ->
+                        // Le balayage remplace la vidéo affichée (sans empiler les écrans) : « Retour » revient à la liste.
+                        val swap: (String) -> Unit = { nav.navigate("player/$it") { popUpTo("player/{id}") { inclusive = true } } }
+                        PlayerScreen(vm, e.arguments?.getString("id") ?: "", swap, back)
+                    }
                     composable("settings") { SettingsScreen(vm, back) }
                 }
             }

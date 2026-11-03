@@ -51,8 +51,9 @@ fun SelectScreen(vm: AppViewModel, nav: (String) -> Unit, back: () -> Unit) {
 
     val all = extra + videos
     val folders = remember(all) { all.map { it.folder }.distinct().sorted() }
-    val shown = all.filter { vm.folderFilter == null || it.folder == vm.folderFilter }
+    val shown = vm.sortOrder.apply(all.filter { vm.folderFilter == null || it.folder == vm.folderFilter })
     var menu by remember { mutableStateOf(false) }
+    var sortMenu by remember { mutableStateOf(false) }
     val selectedSize = all.filter { it.key in selected }.sumOf { it.sizeBytes }
 
     Scaffold(
@@ -98,6 +99,15 @@ fun SelectScreen(vm: AppViewModel, nav: (String) -> Unit, back: () -> Unit) {
                 }
                 TextButton({ vm.selectAll(shown.map { it.key }) }) { Text(if (vm.folderFilter == null) "Tout" else "Tout le dossier") }
                 TextButton({ vm.clearSelection() }) { Text("Aucune") }
+            }
+            Box(Modifier.padding(horizontal = 12.dp)) {
+                OutlinedButton({ sortMenu = true }, Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.SwapVert, null); Spacer(Modifier.width(6.dp))
+                    Text("Tri : ${vm.sortOrder.label}", maxLines = 1)
+                }
+                DropdownMenu(sortMenu, { sortMenu = false }) {
+                    VideoSort.entries.forEach { s -> DropdownMenuItem({ Text(s.label) }, { vm.sortOrder = s; sortMenu = false }, trailingIcon = { if (s == vm.sortOrder) Icon(Icons.Default.Check, null) }) }
+                }
             }
             if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (shown.isEmpty() && !loading && granted) Text("Aucune vidéo trouvée.", Modifier.padding(24.dp))

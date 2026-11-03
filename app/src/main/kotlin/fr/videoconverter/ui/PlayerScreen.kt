@@ -19,6 +19,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -37,10 +41,15 @@ import java.io.File
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlayerScreen(vm: AppViewModel, id: String, back: () -> Unit) {
+fun PlayerScreen(vm: AppViewModel, id: String, goTo: (String) -> Unit, back: () -> Unit) {
     val ctx = LocalContext.current
     val items by vm.queue.items.collectAsStateWithLifecycle()
     val item = items.firstOrNull { it.id == id }
+    // Vidéos lisibles dans l'ordre de la liste (plus récente en premier) : balayage gauche = suivante, droite = précédente.
+    val playable = items.filter { it.state == ItemState.DONE && it.outputUri != null }.sortedByDescending { it.finishedAt }
+    val pos = playable.indexOfFirst { it.id == id }
+    val swipeLeft = { playable.getOrNull(pos + 1)?.let { goTo(it.id) } }
+    val swipeRight = { if (pos > 0) playable.getOrNull(pos - 1)?.let { goTo(it.id) } }
     var playUri by remember { mutableStateOf<Uri?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -81,7 +90,28 @@ fun PlayerScreen(vm: AppViewModel, id: String, back: () -> Unit) {
         TopAppBar(title = { Text(item?.outputName ?: "Lecture") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") } })
     }) { pad ->
         if (item == null) { Text("Fichier introuvable dans l'historique.", Modifier.padding(pad).padding(24.dp)); return@Scaffold }
-        Column(Modifier.padding(pad).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+        Column(
+            Modifier.padding(pad).fillMaxSize()
+                // Observe les gestes sans les consommer (le lecteur vidéo et le défilement gardent leur comportement).
+                .pointerInput(id) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        var dx = 0f; var dy = 0f
+                        var last = down.position
+                        do {
+                            val ev = awaitPointerEvent(PointerEventPass.Initial)
+                            val c = ev.changes.firstOrNull { it.id == down.id } ?: break
+                            dx += c.position.x - last.x; dy += c.position.y - last.y; last = c.position
+                        } while (ev.changes.any { it.pressed })
+                        if (kotlin.math.abs(dx) > 160f && kotlin.math.abs(dx) > 2 * kotlin.math.abs(dy)) { if (dx < 0) swipeLeft() else swipeRight() }
+                    }
+                }
+                .padding(horizontal = 16.dp).verticalScroll(rememberScrollState()),
+        ) {
+            if (playable.size > 1 && pos >= 0) Text(
+                "Vidéo ${pos + 1} / ${playable.size} · balayez ← pour la suivante, → pour la précédente",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp),
+            )
             Box(Modifier.fillMaxWidth().height(420.dp), contentAlignment = Alignment.Center) {
                 val u = playUri
                 when {
