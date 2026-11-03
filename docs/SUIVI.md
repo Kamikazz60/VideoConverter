@@ -58,3 +58,4 @@ Exécuter docs/TESTS.md à partir du point 2 (conversion MP4 réelle d'une vraie
 ## Mise à jour (tri + balayage)
 - Choisir les vidéos : menu « Tri » (date récentes/anciennes, taille croissante/décroissante), appliqué après le filtre de dossier. Niveau 2.
 - Lecteur : balayage gauche = vidéo suivante, droite = précédente (ordre de la liste, plus récente d'abord), compteur « n / total ». Niveau 2, à vérifier sur le Pixel (le geste ne doit pas gêner la barre de lecture).
+- Balayage du lecteur : animation (l'écran suit le doigt, sort sur le côté, la vidéo suivante arrive du côté opposé, flèches de bord, résistance s'il n'y a rien de ce côté, retour élastique si le geste est trop court). Niveau 2, à juger sur le Pixel.

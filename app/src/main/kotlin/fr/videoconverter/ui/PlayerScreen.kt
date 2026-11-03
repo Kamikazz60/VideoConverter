@@ -19,6 +19,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -34,6 +45,9 @@ import fr.videoconverter.model.ItemState
 import fr.videoconverter.model.Mode
 import java.io.File
 
+/** Sens du dernier balayage (−1 = vers la gauche, 1 = vers la droite) : la vidéo suivante arrive du côté opposé. */
+private var enterFrom = 0
+
 /**
  * Lecture du fichier produit dans l'application, puis suppression éventuelle de l'original après validation.
  * Les AVI non compressés ne sont pas lisibles par le lecteur du téléphone : un aperçu H.264 (60 premières
@@ -48,8 +62,22 @@ fun PlayerScreen(vm: AppViewModel, id: String, goTo: (String) -> Unit, back: () 
     // Vidéos lisibles dans l'ordre de la liste (plus récente en premier) : balayage gauche = suivante, droite = précédente.
     val playable = items.filter { it.state == ItemState.DONE && it.outputUri != null }.sortedByDescending { it.finishedAt }
     val pos = playable.indexOfFirst { it.id == id }
+    val hasNext = pos >= 0 && pos + 1 < playable.size
+    val hasPrev = pos > 0
     val swipeLeft = { playable.getOrNull(pos + 1)?.let { goTo(it.id) } }
     val swipeRight = { if (pos > 0) playable.getOrNull(pos - 1)?.let { goTo(it.id) } }
+
+    // Animation : l'écran suit le doigt, sort sur le côté, puis la nouvelle vidéo arrive du côté opposé.
+    val scope = rememberCoroutineScope()
+    var width by remember { mutableFloatStateOf(1080f) }
+    val offset = remember { Animatable(if (enterFrom != 0) -enterFrom * 4000f else 0f) }   // hors écran dès la 1re image : pas de flash
+    LaunchedEffect(id) {
+        if (enterFrom != 0) {
+            val dir = enterFrom; enterFrom = 0
+            offset.snapTo(-dir * width)
+            offset.animateTo(0f, tween(220))
+        }
+    }
     var playUri by remember { mutableStateOf<Uri?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -90,22 +118,46 @@ fun PlayerScreen(vm: AppViewModel, id: String, goTo: (String) -> Unit, back: () 
         TopAppBar(title = { Text(item?.outputName ?: "Lecture") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") } })
     }) { pad ->
         if (item == null) { Text("Fichier introuvable dans l'historique.", Modifier.padding(pad).padding(24.dp)); return@Scaffold }
-        Column(
-            Modifier.padding(pad).fillMaxSize()
+        Box(
+            Modifier.padding(pad).fillMaxSize().clipToBounds()
+                .onSizeChanged { width = it.width.toFloat() }
                 // Observe les gestes sans les consommer (le lecteur vidéo et le défilement gardent leur comportement).
-                .pointerInput(id) {
+                .pointerInput(id, pos, playable.size) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                         var dx = 0f; var dy = 0f
                         var last = down.position
+                        var horizontal = false
                         do {
                             val ev = awaitPointerEvent(PointerEventPass.Initial)
                             val c = ev.changes.firstOrNull { it.id == down.id } ?: break
                             dx += c.position.x - last.x; dy += c.position.y - last.y; last = c.position
+                            if (!horizontal && abs(dx) > 24f && abs(dx) > 1.5f * abs(dy)) horizontal = true
+                            if (horizontal) {
+                                val exists = if (dx < 0) hasNext else hasPrev
+                                val shown = if (exists) dx else dx * 0.25f      // résistance s'il n'y a rien de ce côté
+                                scope.launch { offset.snapTo(shown) }
+                            }
                         } while (ev.changes.any { it.pressed })
-                        if (kotlin.math.abs(dx) > 160f && kotlin.math.abs(dx) > 2 * kotlin.math.abs(dy)) { if (dx < 0) swipeLeft() else swipeRight() }
+                        val exists = if (dx < 0) hasNext else hasPrev
+                        if (horizontal && exists && abs(dx) > maxOf(160f, width * 0.25f)) {
+                            val dir = if (dx < 0) -1 else 1
+                            scope.launch {
+                                offset.animateTo(dir * width, tween(160))
+                                enterFrom = dir
+                                if (dir < 0) swipeLeft() else swipeRight()
+                            }
+                        } else scope.launch { offset.animateTo(0f, spring(dampingRatio = 0.7f, stiffness = 400f)) }
                     }
-                }
+                },
+        ) {
+            // Indications sur les bords : flèche du côté d'où arrive l'autre vidéo.
+            val reveal = (abs(offset.value) / 300f).coerceIn(0f, 1f)
+            if (offset.value > 0f && hasPrev) Icon(Icons.Default.SkipPrevious, null, Modifier.align(Alignment.CenterStart).padding(start = 16.dp).size(40.dp).alpha(reveal), tint = MaterialTheme.colorScheme.primary)
+            if (offset.value < 0f && hasNext) Icon(Icons.Default.SkipNext, null, Modifier.align(Alignment.CenterEnd).padding(end = 16.dp).size(40.dp).alpha(reveal), tint = MaterialTheme.colorScheme.primary)
+        Column(
+            Modifier.fillMaxSize()
+                .graphicsLayer { translationX = offset.value; alpha = 1f - 0.5f * (abs(offset.value) / maxOf(width, 1f)).coerceIn(0f, 1f) }
                 .padding(horizontal = 16.dp).verticalScroll(rememberScrollState()),
         ) {
             if (playable.size > 1 && pos >= 0) Text(
@@ -147,6 +199,7 @@ fun PlayerScreen(vm: AppViewModel, id: String, goTo: (String) -> Unit, back: () 
                 else -> Text("L'original ne peut pas être supprimé d'ici (choisi via le sélecteur de fichiers, déjà supprimé, ou conversion non vérifiée). Supprimez-le depuis l'application Fichiers ou Photos si besoin.", style = MaterialTheme.typography.bodySmall)
             }
             Spacer(Modifier.height(24.dp))
+        }
         }
     }
 
