@@ -8,7 +8,7 @@ Plateforme : Android 10+ (minSdk 29, targetSdk 36), Pixel 6a prioritaire (arm64-
 Livrable : `apk\VideoConverter-<version>-debug.apk` et `-release.apk` (copiés automatiquement par `tools\Build.ps1`). Package `fr.videoconverter`.
 
 ## 2. Environnement (vérifié le 03/11/2026)
-- Machine : PC de l'utilisateur, Windows 10 Pro, i5-6600K, 24 Go. Sources : `C:\Users\Doanh\Desktop\Programme IA\VideoConverter`.
+- Machine : PC Windows 10 Pro de l'utilisateur (processeur 4 coeurs, 24 Go de RAM). Sources : dossier du projet.
 - Compilation sur le PC avec JDK 17 Temurin + SDK Android de `%USERPROFILE%\Documents\Codex\AndroidDev` (activés par `tools\Activate-Android.ps1`). Android Studio (JBR 25) est aussi installé mais Gradle 8.13 exige JDK 17.
 - Réseau : Maven Central et dl.google.com accessibles.
 - Émulateur : inutilisable (pas d'hyperviseur : `emulator -accel-check` code 6). Aucun appareil branché (`adb devices` vide).

@@ -22,3 +22,11 @@ Voir docs/SUIVI.md. **Version non encore validée sur appareil** : les résultat
 
 ## Développement
 `.\tools\Build.ps1` → tests unitaires + APK debug/release dans `apk\`. Détails : CLAUDE.md, TECHNICAL.md.
+
+## Licence
+VideoConverter est un logiciel libre, distribué sous **GNU GPL v3** (voir [LICENSE](LICENSE)). Copyright © 2026 Kamikazz60.
+
+L'application embarque **FFmpegKit « full-gpl » 6.0.4** (FFmpeg 6.1 avec x264, x265, Xvid et d'autres bibliothèques, toutes sous licence GPL ou compatible), fournie sous forme d'archive binaire dans `app/libs/`. Sources correspondantes : FFmpeg (https://ffmpeg.org/) et FFmpegKit (https://github.com/arthenica/ffmpeg-kit). Pour obtenir le code source exact des bibliothèques embarquées, ouvrez un ticket sur ce dépôt.
+
+Les APK sont publiés dans l'onglet [Releases](../../releases) ; le code source de chaque version est celui de ce dépôt. Fiche et contrôle de sécurité : https://kamikazz60.github.io/Mon-Android-Store/#/app/videoconverter
+
