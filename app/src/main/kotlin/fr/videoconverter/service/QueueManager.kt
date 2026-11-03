@@ -74,6 +74,10 @@ class QueueManager(private val context: Context, private val store: Store) {
 
     fun clearFinished() = update { l -> l.filter { it.state == ItemState.PENDING || it.state == ItemState.RUNNING } }
 
+    /** Mémorise que l'original (identifié par son URI source) a été supprimé : toutes les entrées qui le référencent sont marquées. */
+    fun markOriginalsDeleted(sourceUris: Collection<String>) =
+        update { l -> l.map { if (it.sourceUri in sourceUris) it.copy(originalDeleted = true) else it } }
+
     fun deleteHistoryEntry(id: String) = update { l -> l.filterNot { it.id == id } }
 
     fun retryFailed() = update { l -> l.map { if (it.state == ItemState.FAILED || it.state == ItemState.CANCELED) it.copy(state = ItemState.PENDING, progress = 0f, error = null) else it } }

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,7 +34,11 @@ fun HistoryScreen(vm: AppViewModel, nav: (String) -> Unit, back: () -> Unit) {
     val hist = items.filter { it.state == ItemState.DONE || it.state == ItemState.FAILED || it.state == ItemState.CANCELED }.sortedByDescending { it.finishedAt }
     var confirm by remember { mutableStateOf<List<Uri>?>(null) }
     var selectedItem by remember { mutableStateOf<QueueItem?>(null) }
-    val deleter = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { }
+    var pendingDeleted by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    val deleter = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
+        if (r.resultCode == android.app.Activity.RESULT_OK) vm.queue.markOriginalsDeleted(pendingDeleted.map { it.toString() })
+        pendingDeleted = emptyList()
+    }
 
     fun mediaOriginals(l: List<QueueItem>): List<Uri> =
         l.filter { it.state == ItemState.DONE && it.verified && it.outputUri != null && OutputFiles.canOpenForRead(ctx, Uri.parse(it.outputUri)) }
@@ -52,12 +57,14 @@ fun HistoryScreen(vm: AppViewModel, nav: (String) -> Unit, back: () -> Unit) {
         LazyColumn(Modifier.padding(pad)) {
             items(hist, key = { it.id }) { it ->
                 ListItem(
-                    modifier = Modifier.clickable { selectedItem = it },
+                    modifier = Modifier.clickable { selectedItem = it }.let { m -> if (it.originalDeleted) m.alpha(0.6f) else m },
+                    colors = if (it.originalDeleted) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant) else ListItemDefaults.colors(),
                     headlineContent = { Text(it.outputName ?: it.name, maxLines = 1) },
                     supportingContent = {
                         Column {
                             Text(DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it.finishedAt)) + " · " + it.profile.name)
                             if (it.state == ItemState.DONE) Text("${formatSize(it.sizeBytes)} → ${formatSize(it.outputSize)}${if (it.verified) " · vérifié" else ""}")
+                            if (it.originalDeleted) OriginalDeletedTag()
                             else Text(it.error ?: "", color = MaterialTheme.colorScheme.error)
                         }
                     },
@@ -110,6 +117,7 @@ fun HistoryScreen(vm: AppViewModel, nav: (String) -> Unit, back: () -> Unit) {
             confirmButton = {
                 TextButton(onClick = {
                     if (uris.isNotEmpty()) {
+                        pendingDeleted = uris
                         val sender = MediaStore.createDeleteRequest(ctx.contentResolver, uris).intentSender
                         deleter.launch(IntentSenderRequest.Builder(sender).build())
                     }

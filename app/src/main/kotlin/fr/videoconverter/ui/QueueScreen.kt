@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.videoconverter.model.ItemState
@@ -96,8 +97,20 @@ fun QueueScreen(vm: AppViewModel, nav: (String) -> Unit, back: () -> Unit) {
                 LinearProgressIndicator({ current.progress }, Modifier.fillMaxWidth().padding(vertical = 4.dp))
                 Text("${(current.progress * 100).toInt()} % · ${current.profile.name}", style = MaterialTheme.typography.bodySmall)
             }
-            items(items.sortedBy { orderOf(it) }, key = { it.id }) { it -> QueueRow(it, canRemove = it.state != ItemState.RUNNING, onOpen = { nav("player/${it.id}") }) { q.remove(it.id) } }
+            items(items.sortedWith(compareBy<QueueItem> { orderOf(it) }.thenBy { if (it.state == ItemState.DONE) -it.finishedAt else 0L }), key = { it.id }) { it -> QueueRow(it, canRemove = it.state != ItemState.RUNNING, onOpen = { nav("player/${it.id}") }) { q.remove(it.id) } }
             item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
+
+/** Petite pastille « original supprimé » affichée dans la case d'une conversion dont l'original a été effacé. */
+@Composable
+fun OriginalDeletedTag() {
+    Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = MaterialTheme.shapes.small, modifier = Modifier.padding(top = 4.dp)) {
+        Row(Modifier.padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.DeleteForever, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+            Spacer(Modifier.width(4.dp))
+            Text("Original supprimé", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
         }
     }
 }
@@ -107,7 +120,9 @@ private fun orderOf(i: QueueItem) = when (i.state) { ItemState.RUNNING -> 0; Ite
 @Composable
 fun QueueRow(it: QueueItem, canRemove: Boolean, onOpen: () -> Unit, onRemove: () -> Unit) {
     ListItem(
-        modifier = if (it.state == ItemState.DONE && it.outputUri != null) Modifier.clickable(onClick = onOpen) else Modifier,
+        modifier = (if (it.state == ItemState.DONE && it.outputUri != null) Modifier.clickable(onClick = onOpen) else Modifier)
+            .let { m -> if (it.originalDeleted) m.alpha(0.6f) else m },
+        colors = if (it.originalDeleted) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant) else ListItemDefaults.colors(),
         headlineContent = { Text(it.name, maxLines = 1) },
         supportingContent = {
             Column {
@@ -115,6 +130,7 @@ fun QueueRow(it: QueueItem, canRemove: Boolean, onOpen: () -> Unit, onRemove: ()
                     ItemState.DONE -> {
                         Text("${formatSize(it.sizeBytes)} → ${formatSize(it.outputSize)} · ${it.outputName}")
                         Text("Encodeur : ${fr.videoconverter.engine.Converter.engineLabel(it.engineUsed)} · toucher pour lire", style = MaterialTheme.typography.bodySmall)
+                        if (it.originalDeleted) OriginalDeletedTag()
                     }
                     ItemState.FAILED, ItemState.CANCELED -> Text(it.error ?: "", color = MaterialTheme.colorScheme.error)
                     ItemState.RUNNING -> Text("${(it.progress * 100).toInt()} %")

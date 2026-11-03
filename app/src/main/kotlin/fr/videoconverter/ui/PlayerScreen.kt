@@ -46,7 +46,9 @@ fun PlayerScreen(vm: AppViewModel, id: String, back: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var deleted by remember { mutableStateOf(false) }
-    val deleter = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r -> if (r.resultCode == Activity.RESULT_OK) deleted = true }
+    val deleter = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
+        if (r.resultCode == Activity.RESULT_OK) { deleted = true; item?.let { vm.queue.markOriginalsDeleted(listOf(it.sourceUri)) } }
+    }
 
     LaunchedEffect(id, item?.outputUri) {
         val it = item ?: return@LaunchedEffect
@@ -107,7 +109,7 @@ fun PlayerScreen(vm: AppViewModel, id: String, back: () -> Unit) {
             item.warnings.forEach { w -> Text("⚠ $w", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary) }
             Spacer(Modifier.height(12.dp))
             when {
-                deleted -> InfoCard("Original supprimé. Le fichier converti est conservé dans Films/VideoConverter.")
+                deleted || item.originalDeleted -> InfoCard("Original supprimé. Le fichier converti est conservé dans Films/VideoConverter.")
                 deletableOriginal() != null -> {
                     Button({ confirmDelete = true }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Le résultat me convient : supprimer l'original…") }
                     Text("Rien n'est supprimé sans votre confirmation, puis celle d'Android.", style = MaterialTheme.typography.bodySmall)

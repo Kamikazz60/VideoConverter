@@ -113,6 +113,8 @@ data class QueueItem(
     val finishedAt: Long = 0,
     val engineUsed: String? = null,
     val verified: Boolean = false,
+    /** L'utilisateur a supprimé le fichier original (après validation dans le lecteur ou depuis l'historique). */
+    val originalDeleted: Boolean = false,
 )
 
 @Serializable
