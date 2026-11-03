@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- pellicule -->
+    <path android:fillColor="#19C2B0" android:pathData="M30,28 h48 a4,4 0 0 1 4,4 v34 a4,4 0 0 1 -4,4 h-48 a4,4 0 0 1 -4,-4 v-34 a4,4 0 0 1 4,-4 z" />
+    <!-- perforations -->
+    <path android:fillColor="#0F1B2D" android:pathData="M29,32 h4 v4 h-4 z M29,40 h4 v4 h-4 z M29,48 h4 v4 h-4 z M29,56 h4 v4 h-4 z M29,64 h4 v2 h-4 z M75,32 h4 v4 h-4 z M75,40 h4 v4 h-4 z M75,48 h4 v4 h-4 z M75,56 h4 v4 h-4 z M75,64 h4 v2 h-4 z" />
+    <!-- fenêtre image -->
+    <path android:fillColor="#0F1B2D" android:pathData="M38,32 h32 v34 h-32 z" />
+    <!-- lecture -->
+    <path android:fillColor="#FFFFFF" android:pathData="M48,40 L62,49 L48,58 z" />
+    <!-- flèche de compression -->
+    <path android:fillColor="#FF9F1C" android:pathData="M50,76 h8 v6 h6 l-10,10 l-10,-10 h6 z" />
+</vector>
