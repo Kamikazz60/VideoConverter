@@ -84,6 +84,8 @@ data class VideoInfo(
     val pixFmt: String = "",
     val bitrate: Long = 0,
     val frames: Long = 0,
+    /** Le fichier porte la signature écrite par VideoConverter dans ses métadonnées (survit au déplacement et au renommage). */
+    val signed: Boolean = false,
 ) {
     val displayWidth get() = if (rotation == 90 || rotation == 270) height else width
     val displayHeight get() = if (rotation == 90 || rotation == 270) width else height
@@ -122,6 +124,6 @@ data class AppSettings(
     val destFolder: String = "VideoConverter",
     val deepVerify: Boolean = true,
     val pauseOnThermal: Boolean = true,
-    /** Dans le choix des vidéos à optimiser : masquer celles déjà en H.264 / H.265 (évite de reconvertir deux fois). */
-    val hideEncoded: Boolean = false,
+    /** Dans le choix des vidéos : masquer celles déjà converties par l'appli (évite de reconvertir deux fois). */
+    val hideConverted: Boolean = false,
 )

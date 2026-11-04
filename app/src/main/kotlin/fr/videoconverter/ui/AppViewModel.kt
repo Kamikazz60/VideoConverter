@@ -89,14 +89,13 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Vidéos dont la lecture des détails a échoué : elles restent affichées (on ne peut pas savoir leur codec). */
+    /** Vidéos dont la lecture des détails a échoué (on ne peut pas lire leur signature : elles restent affichées). */
     private val probeFailed = mutableStateListOf<Long>()
-    fun probeFailed(v: VideoItem) = v.key in probeFailed
 
-    /** Nombre de vidéos dont le codec reste à analyser (pour la barre « Analyse des codecs »). */
+    /** Nombre de vidéos dont les métadonnées restent à lire (pour la barre « Analyse des vidéos »). */
     fun unprobed(l: List<VideoItem>) = l.count { it.key !in infoCache && it.key !in probeFailed }
 
-    /** Analyse en tâche de fond toutes les vidéos non encore sondées (nécessaire pour filtrer par codec). */
+    /** Sonde en tâche de fond les vidéos pas encore lues (2 à la fois) pour y chercher la signature. */
     fun probeAll(l: List<VideoItem>) {
         l.filter { it.key !in infoCache && it.key !in probeFailed }.forEach { v ->
             viewModelScope.launch {
@@ -109,8 +108,18 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Vrai si la vidéo est déjà encodée en H.264 ou H.265 ; null tant que son codec est inconnu. */
-    fun isEncoded(v: VideoItem): Boolean? = infoCache[v.key]?.videoCodec?.lowercase()?.let { it in setOf("h264", "hevc", "h265") }
+    /**
+     * Reconnaît une vidéo déjà traitée par l'appli, sans dépendre de son emplacement :
+     *  1. signature « VideoConverter » dans les métadonnées du fichier (après sondage) ;
+     *  2. fichier produit connu de l'historique (même nom et même taille) ;
+     *  3. original déjà converti (même URI source) ;
+     *  4. rangé dans le dossier de sortie de l'appli.
+     */
+    fun isConverted(v: VideoItem, done: List<QueueItem>, destFolder: String): Boolean =
+        infoCache[v.key]?.signed == true ||
+            // Un original converti en MP4 reste proposé en mode AVI (et inversement) : seul le même mode compte.
+            done.any { (it.outputName == v.name && it.outputSize == v.sizeBytes) || (it.profile.mode == mode && it.sourceUri == v.uri.toString()) } ||
+            (destFolder.isNotBlank() && v.folder.contains(destFolder, ignoreCase = true))
 
     suspend fun infoOf(v: VideoItem): VideoInfo? =
         infoCache[v.key] ?: Ffmpeg.probe(app, v.uri, v.name, v.sizeBytes)?.also { infoCache[v.key] = it }

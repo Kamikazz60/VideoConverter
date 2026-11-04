@@ -52,14 +52,16 @@ fun SelectScreen(vm: AppViewModel, nav: (String) -> Unit, back: () -> Unit) {
     val all = extra + videos
     val folders = remember(all) { all.map { it.folder }.distinct().sorted() }
     val settings by vm.settings.collectAsStateWithLifecycle()
-    val hideEncoded = settings.hideEncoded && vm.mode == Mode.OPTIMIZE
+    val hide = settings.hideConverted
+    val queueItems by vm.queue.items.collectAsStateWithLifecycle()
+    val done = queueItems.filter { it.state == fr.videoconverter.model.ItemState.DONE }
     val inFolder = all.filter { vm.folderFilter == null || it.folder == vm.folderFilter }
-    LaunchedEffect(hideEncoded, inFolder.size) { if (hideEncoded) vm.probeAll(inFolder) }
-    val toScan = if (hideEncoded) vm.unprobed(inFolder) else 0
-    // Filtre actif : une vidéo n'apparaît qu'une fois son codec connu et différent de H.264 / H.265 (ou si la lecture a échoué).
-    val shown = vm.sortOrder.apply(
-        if (hideEncoded) inFolder.filter { v -> vm.isEncoded(v) == false || vm.probeFailed(v) } else inFolder
-    )
+    // Les vidéos reconnues sans lecture (historique, dossier de sortie) ne sont pas sondées ; les autres le sont pour y chercher la signature.
+    val isConv = { v: VideoItem -> vm.isConverted(v, done, settings.destFolder) }
+    LaunchedEffect(hide, inFolder.size) { if (hide) vm.probeAll(inFolder.filterNot { isConv(it) }) }
+    val toScan = if (hide) vm.unprobed(inFolder.filterNot { isConv(it) }) else 0
+    val hiddenCount = if (hide) inFolder.count { isConv(it) } else 0
+    val shown = vm.sortOrder.apply(if (hide) inFolder.filterNot { isConv(it) } else inFolder)
     var menu by remember { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
     val selectedSize = all.filter { it.key in selected }.sumOf { it.sizeBytes }
@@ -117,23 +119,27 @@ fun SelectScreen(vm: AppViewModel, nav: (String) -> Unit, back: () -> Unit) {
                     VideoSort.entries.forEach { s -> DropdownMenuItem({ Text(s.label) }, { vm.sortOrder = s; sortMenu = false }, trailingIcon = { if (s == vm.sortOrder) Icon(Icons.Default.Check, null) }) }
                 }
             }
-            if (vm.mode == Mode.OPTIMIZE) Row(
-                Modifier.fillMaxWidth().clickable { vm.updateSettings(settings.copy(hideEncoded = !settings.hideEncoded)) }.padding(horizontal = 12.dp),
+            Row(
+                Modifier.fillMaxWidth().clickable { vm.updateSettings(settings.copy(hideConverted = !hide)) }.padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Checkbox(settings.hideEncoded, { vm.updateSettings(settings.copy(hideEncoded = it)) })
+                Checkbox(hide, { vm.updateSettings(settings.copy(hideConverted = it)) })
                 Column {
-                    Text("Masquer les vidéos déjà en H.264 / H.265")
-                    Text("Option : décochez-la pour revoir toutes les vidéos.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Masquer les vidéos déjà converties par l'appli")
+                    Text(
+                        if (hide) "$hiddenCount masquée(s) · décochez pour tout revoir (autre format, nouvelle conversion…)"
+                        else "Option : cochez pour ne plus proposer ce qui a déjà été converti.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (toScan > 0) {
-                LinearProgressIndicator({ 1f - toScan.toFloat() / inFolder.size.coerceAtLeast(1) }, Modifier.fillMaxWidth())
-                Text("Analyse des codecs : ${inFolder.size - toScan} / ${inFolder.size}", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+                Text("Recherche des conversions déjà faites… il reste $toScan vidéo(s) à analyser", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
             }
             if (shown.isEmpty() && !loading && granted && toScan == 0) Text(
-                if (hideEncoded && inFolder.isNotEmpty()) "Toutes les vidéos sont déjà en H.264 / H.265 (masquées). Décochez l'option pour les voir." else "Aucune vidéo trouvée.",
+                if (hide && inFolder.isNotEmpty()) "Toutes les vidéos ont déjà été converties (masquées). Décochez l'option pour les voir." else "Aucune vidéo trouvée.",
                 Modifier.padding(24.dp),
             )
             LazyColumn(Modifier.fillMaxSize()) {

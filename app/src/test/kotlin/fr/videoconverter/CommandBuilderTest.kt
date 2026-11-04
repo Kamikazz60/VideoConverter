@@ -25,6 +25,15 @@ class CommandBuilderTest {
         assertTrue(s.contains("pad=3414:1920:1166:0:black")); assertTrue(s.contains("-c:v libxvid"))
     }
 
+    @Test fun `les fichiers produits portent la signature VideoConverter`() {
+        val mp4 = CommandBuilder.optimize("in", "out", src1080, DefaultProfiles.all[0], hardware = false).args
+        val avi = CommandBuilder.avi("in", "out", srcOdd, aviBase).args
+        for (args in listOf(mp4, avi)) {
+            val i = args.indexOf("-metadata")
+            assertTrue(i >= 0); assertEquals("comment=${CommandBuilder.SIGNATURE}", args[i + 1])
+        }
+    }
+
     @Test fun `1080p vers 720p conserve le rapport`() {
         val plan = SizePlanner.optimize(src1080, DefaultProfiles.all[0])
         assertEquals(1280, plan.width); assertEquals(720, plan.height)

@@ -85,6 +85,9 @@ object SizePlanner {
 
 /** Construit les arguments FFmpeg. Fonctions pures, testées sur PC. */
 object CommandBuilder {
+    /** Écrite dans les métadonnées (« comment ») de chaque fichier produit : sert à reconnaître nos conversions, où qu'elles soient rangées. */
+    const val SIGNATURE = "VideoConverter"
+
     data class Built(val args: List<String>, val plan: OutputPlan, val encoder: String, val warnings: List<String>)
 
     /** Débit cible (b/s) pour l'encodeur matériel, calculé en bits par pixel et par image. */
@@ -121,7 +124,7 @@ object CommandBuilder {
         a += listOf("-map", "0:v:0")
         val audio = p.keepAudio && src.audioCodec != null
         if (audio) a += listOf("-map", "0:a?")
-        a += listOf("-map_metadata", "0", "-map_chapters", "-1")
+        a += listOf("-map_metadata", "0", "-map_chapters", "-1", "-metadata", "comment=$SIGNATURE")
         val tenBit = src.bitDepth > 8 && p.optCodec == OptCodec.HEVC && !hardware
         val pix = if (hardware) "nv12" else if (tenBit) "yuv420p10le" else "yuv420p"
         val vf = buildList {
@@ -163,7 +166,7 @@ object CommandBuilder {
         a += listOf("-map", "0:v:0")
         val audio = p.aviKeepAudio && src.audioCodec != null
         if (audio) a += listOf("-map", "0:a:0")
-        a += listOf("-map_metadata", "0", "-map_chapters", "-1")
+        a += listOf("-map_metadata", "0", "-map_chapters", "-1", "-metadata", "comment=$SIGNATURE")
         val pix = when (p.aviCodec) {
             AviCodec.RGB -> if (p.rgb32) "bgr0" else "bgr24"
             AviCodec.YUY2 -> "yuyv422"

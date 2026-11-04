@@ -103,7 +103,21 @@ object Ffmpeg {
             pixFmt = v.format ?: "",
             bitrate = mi.bitrate?.toLongOrNull() ?: 0,
             frames = props.optString("nb_frames", "0").toLongOrNull() ?: 0,
+            signed = hasSignature(mi.tags),
         )
+    }
+
+    /** Cherche la signature VideoConverter dans les métadonnées du conteneur (MP4 : comment ; AVI : ICMT). */
+    private fun hasSignature(tags: JSONObject?): Boolean {
+        if (tags == null) return false
+        val keys = tags.keys()
+        while (keys.hasNext()) {
+            val k = keys.next()
+            if (k.equals("comment", true) || k.equals("ICMT", true)) {
+                if (tags.optString(k).contains(CommandBuilder.SIGNATURE, ignoreCase = true)) return true
+            }
+        }
+        return false
     }
 
     fun parseRate(s: String): Double {
