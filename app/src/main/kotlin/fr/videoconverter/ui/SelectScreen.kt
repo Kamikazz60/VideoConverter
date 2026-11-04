@@ -51,7 +51,15 @@ fun SelectScreen(vm: AppViewModel, nav: (String) -> Unit, back: () -> Unit) {
 
     val all = extra + videos
     val folders = remember(all) { all.map { it.folder }.distinct().sorted() }
-    val shown = vm.sortOrder.apply(all.filter { vm.folderFilter == null || it.folder == vm.folderFilter })
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val hideEncoded = settings.hideEncoded && vm.mode == Mode.OPTIMIZE
+    val inFolder = all.filter { vm.folderFilter == null || it.folder == vm.folderFilter }
+    LaunchedEffect(hideEncoded, inFolder.size) { if (hideEncoded) vm.probeAll(inFolder) }
+    val toScan = if (hideEncoded) vm.unprobed(inFolder) else 0
+    // Filtre actif : une vidéo n'apparaît qu'une fois son codec connu et différent de H.264 / H.265 (ou si la lecture a échoué).
+    val shown = vm.sortOrder.apply(
+        if (hideEncoded) inFolder.filter { v -> vm.isEncoded(v) == false || vm.probeFailed(v) } else inFolder
+    )
     var menu by remember { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
     val selectedSize = all.filter { it.key in selected }.sumOf { it.sizeBytes }
@@ -109,8 +117,25 @@ fun SelectScreen(vm: AppViewModel, nav: (String) -> Unit, back: () -> Unit) {
                     VideoSort.entries.forEach { s -> DropdownMenuItem({ Text(s.label) }, { vm.sortOrder = s; sortMenu = false }, trailingIcon = { if (s == vm.sortOrder) Icon(Icons.Default.Check, null) }) }
                 }
             }
+            if (vm.mode == Mode.OPTIMIZE) Row(
+                Modifier.fillMaxWidth().clickable { vm.updateSettings(settings.copy(hideEncoded = !settings.hideEncoded)) }.padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(settings.hideEncoded, { vm.updateSettings(settings.copy(hideEncoded = it)) })
+                Column {
+                    Text("Masquer les vidéos déjà en H.264 / H.265")
+                    Text("Option : décochez-la pour revoir toutes les vidéos.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if (shown.isEmpty() && !loading && granted) Text("Aucune vidéo trouvée.", Modifier.padding(24.dp))
+            if (toScan > 0) {
+                LinearProgressIndicator({ 1f - toScan.toFloat() / inFolder.size.coerceAtLeast(1) }, Modifier.fillMaxWidth())
+                Text("Analyse des codecs : ${inFolder.size - toScan} / ${inFolder.size}", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
+            }
+            if (shown.isEmpty() && !loading && granted && toScan == 0) Text(
+                if (hideEncoded && inFolder.isNotEmpty()) "Toutes les vidéos sont déjà en H.264 / H.265 (masquées). Décochez l'option pour les voir." else "Aucune vidéo trouvée.",
+                Modifier.padding(24.dp),
+            )
             LazyColumn(Modifier.fillMaxSize()) {
                 items(shown, key = { it.key }) { v -> VideoRow(vm, v, v.key in selected) }
             }

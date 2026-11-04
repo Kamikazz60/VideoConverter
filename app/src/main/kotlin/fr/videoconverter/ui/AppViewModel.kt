@@ -2,6 +2,7 @@ package fr.videoconverter.ui
 
 import android.app.Application
 import android.net.Uri
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
@@ -87,6 +88,29 @@ class AppViewModel(private val app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    /** Vidéos dont la lecture des détails a échoué : elles restent affichées (on ne peut pas savoir leur codec). */
+    private val probeFailed = mutableStateListOf<Long>()
+    fun probeFailed(v: VideoItem) = v.key in probeFailed
+
+    /** Nombre de vidéos dont le codec reste à analyser (pour la barre « Analyse des codecs »). */
+    fun unprobed(l: List<VideoItem>) = l.count { it.key !in infoCache && it.key !in probeFailed }
+
+    /** Analyse en tâche de fond toutes les vidéos non encore sondées (nécessaire pour filtrer par codec). */
+    fun probeAll(l: List<VideoItem>) {
+        l.filter { it.key !in infoCache && it.key !in probeFailed }.forEach { v ->
+            viewModelScope.launch {
+                probeGate.withPermit {
+                    if (infoCache.containsKey(v.key) || v.key in probeFailed) return@withPermit
+                    val i = Ffmpeg.probe(app, v.uri, v.name, v.sizeBytes)
+                    if (i != null) infoCache[v.key] = i else probeFailed += v.key
+                }
+            }
+        }
+    }
+
+    /** Vrai si la vidéo est déjà encodée en H.264 ou H.265 ; null tant que son codec est inconnu. */
+    fun isEncoded(v: VideoItem): Boolean? = infoCache[v.key]?.videoCodec?.lowercase()?.let { it in setOf("h264", "hevc", "h265") }
 
     suspend fun infoOf(v: VideoItem): VideoInfo? =
         infoCache[v.key] ?: Ffmpeg.probe(app, v.uri, v.name, v.sizeBytes)?.also { infoCache[v.key] = it }

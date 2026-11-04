@@ -122,4 +122,6 @@ data class AppSettings(
     val destFolder: String = "VideoConverter",
     val deepVerify: Boolean = true,
     val pauseOnThermal: Boolean = true,
+    /** Dans le choix des vidéos à optimiser : masquer celles déjà en H.264 / H.265 (évite de reconvertir deux fois). */
+    val hideEncoded: Boolean = false,
 )
